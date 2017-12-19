@@ -109,7 +109,8 @@ class MainWindow:
 
         self.menu_bar = tk.Menu(
             root,
-            bg="#ddd"
+            bg="#ddd",
+            relief=tk.FLAT
         )
         self.menu_bar.add_command(
             label="How To",
@@ -291,7 +292,6 @@ class MainWindow:
             root,
             text="CLEAR",
             command=self.clear_callback,
-            width=40,
             bg="#ffffff",
             bd=2,
             relief=tk.FLAT
