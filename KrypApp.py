@@ -21,56 +21,102 @@ from Crypto.Cipher import AES
 class EncryptionTool:
     """ "EncryptionTool" class from "Nathaniel Knous" for file encryption """
     def __init__(self, user_file, user_key, user_salt):
+        # get the path to input file
         self.user_file = user_file
-        self.user_key = bytes(user_key, 'utf-8')  # convert the key to bytes
-        self.user_salt = bytes(user_salt, 'utf-8')
-        self.file_extension = self.user_file.split('.')[-1]  # get the file extension
-        self.hash_type = 'SHA256'
-        self.encrypt_output_file = '.'.join(self.user_file.split(".")[:-1]) + '.' + self.file_extension + '.kryp'
+        
+        # convert the key and salt to bytes
+        self.user_key = bytes(user_key, "utf-8")
+        self.user_salt = bytes(user_salt, "utf-8")
+
+        # get the file extension
+        self.file_extension = self.user_file.split(".")[-1]
+        
+        # hash type for hashing key and salt
+        self.hash_type = "SHA256"
+
+        # encrypted file name
+        self.encrypt_output_file = ".".join(self.user_file.split(".")[:-1]) + "." + self.file_extension + ".kryp"
+
+        # decrypted file name
         self.decrypt_output_file = self.user_file[:-5]
+
+        # dictionary to store hashed key and salt
         self.hashed_key_salt = dict()
-        self.hash_key_salt()  # call the class self function that will hash the key salt into 16 bit hashes
+
+        # hash key and salt into 16 bit hashes
+        self.hash_key_salt()
 
     def encrypt(self):
         # create a cipher object
-        cipher_object = AES.new(self.hashed_key_salt['key'], AES.MODE_CFB, self.hashed_key_salt['salt'])
+        cipher_object = AES.new(
+            self.hashed_key_salt["key"],
+            AES.MODE_CFB,
+            self.hashed_key_salt["salt"]
+        )
+
         # read content of file
-        with open(self.user_file, 'rb') as f:
+        with open(self.user_file, "rb") as f:
             content = f.read()
-        f.close()
-        encrypted_content = cipher_object.encrypt(content)  # encrypt the file contents
+
+        # encrypt the file contents
+        encrypted_content = cipher_object.encrypt(content)
+
         #  write the encrypted content to output file
-        with open(self.encrypt_output_file, 'wb') as g:
+        with open(self.encrypt_output_file, "wb") as g:
             g.write(encrypted_content)
-        g.close()
-        del cipher_object  # clean up the cipher object
+
+        # clean up the cipher object
+        del cipher_object
 
     def decrypt(self):
         #  exact same as above function except in reverse
-        cipher_object = AES.new(self.hashed_key_salt['key'], AES.MODE_CFB, self.hashed_key_salt['salt'])
-        f = open(self.user_file, 'rb')
-        content = f.read()
-        f.close()
+        cipher_object = AES.new(
+            self.hashed_key_salt["key"],
+            AES.MODE_CFB,
+            self.hashed_key_salt["salt"]
+        )
+
+        # read content of file
+        with open(self.user_file, "rb") as f:
+            content = f.read()
+
+        # decrypt the file contents
         decrypted_content = cipher_object.decrypt(content)
-        f = open(self.decrypt_output_file, 'wb')
-        f.write(decrypted_content)
-        f.close()
+
+        #  write the decrypted content to output file
+        with open(self.decrypt_output_file, "wb") as g:
+            g.write(decrypted_content)
+
+        # clean up the cipher object
         del cipher_object
 
     def hash_key_salt(self):
+        # --- convert key to hash
         #  create a new hash object
         hasher = hashlib.new(self.hash_type)
         hasher.update(self.user_key)
-        self.hashed_key_salt['key'] = bytes(hasher.hexdigest()[:16], 'utf-8')  # turn the output hash into 16 bits for key salt req.
-        del hasher  # clean up hash object
+
+        # turn the output key hash into 16 bits
+        self.hashed_key_salt["key"] = bytes(hasher.hexdigest()[:16], "utf-8")
+
+        # clean up hash object
+        del hasher
+
+        # --- convert salt to hash
+        #  create a new hash object
         hasher = hashlib.new(self.hash_type)
         hasher.update(self.user_salt)
-        self.hashed_key_salt['salt'] = bytes(hasher.hexdigest()[:16], 'utf-8')
+
+        # turn the output salt hash into 16 bits
+        self.hashed_key_salt["salt"] = bytes(hasher.hexdigest()[:16], "utf-8")
+        
+        # clean up hash object
         del hasher
 
 
 class MainWindow:
     """ GUI Wrapper """
+
     # configure root directory path relative to this file
     THIS_FOLDER_G = ""
     if getattr(sys, "frozen", False):
@@ -82,6 +128,13 @@ class MainWindow:
 
     def __init__(self, root):
         self.root = root
+        self._cipher = None
+        self._file_url = tk.StringVar()
+        self._secret_key = tk.StringVar()
+        self._salt = tk.StringVar()
+        self._status = tk.StringVar()
+        self._status.set("---")
+
         root.title("KrypApp")
         root.configure(bg="#ddd")
 
@@ -99,13 +152,6 @@ class MainWindow:
         except Exception as e:
             # print(e)
             pass
-
-        self._cipher = None
-        self._file_url = tk.StringVar()
-        self._secret_key = tk.StringVar()
-        self._salt = tk.StringVar()
-        self._status = tk.StringVar()
-        self._status.set("---")
 
         self.menu_bar = tk.Menu(
             root,
@@ -326,6 +372,11 @@ class MainWindow:
             columnspan=4,
             sticky=tk.W+tk.E+tk.N+tk.S
         )
+
+        tk.Grid.columnconfigure(root, 0, weight=1)
+        tk.Grid.columnconfigure(root, 1, weight=1)
+        tk.Grid.columnconfigure(root, 2, weight=1)
+        tk.Grid.columnconfigure(root, 3, weight=1)
 
     def selectfile_callback(self):
         name = filedialog.askopenfile()
