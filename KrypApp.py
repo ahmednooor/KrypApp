@@ -2,11 +2,7 @@
 """
     Name: KrypApp
     Type: File Encryption GUI App
-    External Lib: "pycryptodome" for Crypto
-        > pip install pycryptodome
-        -- Might need "Microsoft Visual C++ Build Tools" on Windows to install "pycryptodome"
-        -- Tested on Windows 10
-    Credits: "EncryptionTool" class from "Nathaniel Knous" for file encryption
+    Credits: "EncryptionTool" class from "github.com/nsk89" for file encryption
 """
 
 import os
@@ -15,18 +11,19 @@ import hashlib
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 
 
 class EncryptionTool:
-    """ "EncryptionTool" class from "Nathaniel Knous" for file encryption """
+    """ "EncryptionTool" class from "github.com/nsk89" for file encryption.
+    (Has been modified a bit.) """
     def __init__(self, user_file, user_key, user_salt):
         # get the path to input file
         self.user_file = user_file
         
         # convert the key and salt to bytes
         self.user_key = bytes(user_key, "utf-8")
-        self.user_salt = bytes(user_salt, "utf-8")
+        self.user_salt = bytes(user_key[::-1], "utf-8")
 
         # get the file extension
         self.file_extension = self.user_file.split(".")[-1]
@@ -136,7 +133,7 @@ class MainWindow:
         self._status.set("---")
 
         root.title("KrypApp")
-        root.configure(bg="#ddd")
+        root.configure(bg="#e7eaf6")
 
         try:
             icon_img = tk.Image(
@@ -155,7 +152,7 @@ class MainWindow:
 
         self.menu_bar = tk.Menu(
             root,
-            bg="#ddd",
+            bg="#e7eaf6",
             relief=tk.FLAT
         )
         self.menu_bar.add_command(
@@ -174,7 +171,7 @@ class MainWindow:
         self.file_entry_label = tk.Label(
             root,
             text="Enter File Path Or Click SELECT FILE Button",
-            bg="#ddd",
+            bg="#e7eaf6",
             anchor=tk.W
         )
         self.file_entry_label.grid(
@@ -211,7 +208,8 @@ class MainWindow:
             text="SELECT FILE",
             command=self.selectfile_callback,
             width=42,
-            bg="#ffffff",
+            bg="#1089ff",
+            fg="#ffffff",
             bd=2,
             relief=tk.FLAT
         )
@@ -228,8 +226,8 @@ class MainWindow:
 
         self.key_entry_label = tk.Label(
             root,
-            text="Enter Secret Key",
-            bg="#ddd",
+            text="Enter Secret Key (Remember this for Decryption)",
+            bg="#e7eaf6",
             anchor=tk.W
         )
         self.key_entry_label.grid(
@@ -261,46 +259,47 @@ class MainWindow:
             sticky=tk.W+tk.E+tk.N+tk.S
         )
 
-        self.salt_entry_label = tk.Label(
-            root,
-            text="Enter Salt",
-            bg="#ddd",
-            anchor=tk.W
-        )
-        self.salt_entry_label.grid(
-            padx=12,
-            pady=(6, 0),
-            ipadx=0,
-            ipady=1,
-            row=5,
-            column=0,
-            columnspan=4,
-            sticky=tk.W+tk.E+tk.N+tk.S
-        )
+        # self.salt_entry_label = tk.Label(
+        #     root,
+        #     text="Enter Salt",
+        #     bg="#e7eaf6",
+        #     anchor=tk.W
+        # )
+        # self.salt_entry_label.grid(
+        #     padx=12,
+        #     pady=(6, 0),
+        #     ipadx=0,
+        #     ipady=1,
+        #     row=5,
+        #     column=0,
+        #     columnspan=4,
+        #     sticky=tk.W+tk.E+tk.N+tk.S
+        # )
 
-        self.salt_entry = tk.Entry(
-            root,
-            textvariable=self._salt,
-            bg="#fff",
-            exportselection=0,
-            relief=tk.FLAT
-        )
-        self.salt_entry.grid(
-            padx=15,
-            pady=6,
-            ipadx=8,
-            ipady=6,
-            row=6,
-            column=0,
-            columnspan=4,
-            sticky=tk.W+tk.E+tk.N+tk.S
-        )
+        # self.salt_entry = tk.Entry(
+        #     root,
+        #     textvariable=self._salt,
+        #     bg="#fff",
+        #     exportselection=0,
+        #     relief=tk.FLAT
+        # )
+        # self.salt_entry.grid(
+        #     padx=15,
+        #     pady=6,
+        #     ipadx=8,
+        #     ipady=6,
+        #     row=6,
+        #     column=0,
+        #     columnspan=4,
+        #     sticky=tk.W+tk.E+tk.N+tk.S
+        # )
         
         self.encrypt_btn = tk.Button(
             root,
             text="ENCRYPT",
             command=self.encrypt_callback,
-            bg="#ffffff",
+            bg="#ed3833",
+            fg="#ffffff",
             bd=2,
             relief=tk.FLAT
         )
@@ -319,7 +318,8 @@ class MainWindow:
             root,
             text="DECRYPT",
             command=self.decrypt_callback,
-            bg="#ffffff",
+            bg="#00bd56",
+            fg="#ffffff",
             bd=2,
             relief=tk.FLAT
         )
@@ -338,7 +338,8 @@ class MainWindow:
             root,
             text="CLEAR",
             command=self.clear_callback,
-            bg="#ffffff",
+            bg="#aa7070",
+            fg="#ffffff",
             bd=2,
             relief=tk.FLAT
         )
@@ -356,7 +357,7 @@ class MainWindow:
         self.status_label = tk.Label(
             root,
             textvariable=self._status,
-            bg="#ddd",
+            bg="#e7eaf6",
             anchor=tk.W,
             justify=tk.LEFT,
             relief=tk.FLAT,
@@ -426,9 +427,9 @@ class MainWindow:
         messagebox.showinfo(
             "How To",
             """1. Click SELECT FILE Button and select your file (e.g. abc.jpg).
-2. Enter your Secret Key and Salt (These can be any alphanumeric letters). Remember these so you can Decrypt the file later.
+2. Enter your Secret Key (This can be any alphanumeric letters). Remember this so you can Decrypt the file later.
 3. Click ENCRYPT Button to encrypt. A new encrypted file with ".kryp" extention (e.g. abc.jpg.kryp) will be created in the same directory where the "abc.jpg" is.
-4. When you want to Decrypt a file you will select the file with the ".kryp" extention and Enter your Secret Key and Salt which you chose at the time of Encryption. Click DECRYPT Button to decrypt. The decrypted file will be of the same name as before "abc.jpg".
+4. When you want to Decrypt a file you will select the file with the ".kryp" extention and Enter your Secret Key which you chose at the time of Encryption. Click DECRYPT Button to decrypt. The decrypted file will be of the same name as before "abc.jpg".
 5. Click CLEAR Button to clear the input fields."""
         )
 
