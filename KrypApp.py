@@ -93,8 +93,8 @@ class EncryptionTool:
         hasher = hashlib.new(self.hash_type)
         hasher.update(self.user_key)
 
-        # turn the output key hash into 16 bits
-        self.hashed_key_salt["key"] = bytes(hasher.hexdigest()[:16], "utf-8")
+        # turn the output key hash into 32 bytes (256 bits)
+        self.hashed_key_salt["key"] = bytes(hasher.hexdigest()[:32], "utf-8")
 
         # clean up hash object
         del hasher
@@ -104,7 +104,7 @@ class EncryptionTool:
         hasher = hashlib.new(self.hash_type)
         hasher.update(self.user_salt)
 
-        # turn the output salt hash into 16 bits
+        # turn the output salt hash into 16 bytes (128 bits)
         self.hashed_key_salt["salt"] = bytes(hasher.hexdigest()[:16], "utf-8")
         
         # clean up hash object
