@@ -16,7 +16,7 @@ if sys.platform == "win32":
 
 setup(
     name="KrypApp",
-    version="1.2",
+    version="1.3",
     description="File Encryption App",
     options={
         "build_exe": {

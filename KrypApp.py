@@ -35,13 +35,26 @@ class EncryptionTool:
         self.encrypt_output_file = ".".join(self.user_file.split(".")[:-1]) + "." + self.file_extension + ".kryp"
 
         # decrypted file name
-        self.decrypt_output_file = self.user_file[:-5]
+        self.decrypt_output_file = self.user_file[:-5].split(".")
+        self.decrypt_output_file = ".".join(self.decrypt_output_file[:-1]) \
+            + "__dekrypted__." + self.decrypt_output_file[-1]
 
         # dictionary to store hashed key and salt
         self.hashed_key_salt = dict()
 
         # hash key and salt into 16 bit hashes
         self.hash_key_salt()
+
+    def read_in_chunks(self, file_object, chunk_size=1024):
+        """Lazy function (generator) to read a file piece by piece.
+        Default chunk size: 1k.
+        Code Courtesy: https://stackoverflow.com/questions/519633/lazy-method-for-reading-big-file-in-python
+        """
+        while True:
+            data = file_object.read(chunk_size)
+            if not data:
+                break
+            yield data
 
     def encrypt(self):
         # create a cipher object
@@ -51,16 +64,15 @@ class EncryptionTool:
             self.hashed_key_salt["salt"]
         )
 
-        # read content of file
-        with open(self.user_file, "rb") as f:
-            content = f.read()
+        input_file = open(self.user_file, "rb")
+        output_file = open(self.encrypt_output_file, "ab")
 
-        # encrypt the file contents
-        encrypted_content = cipher_object.encrypt(content)
-
-        #  write the encrypted content to output file
-        with open(self.encrypt_output_file, "wb") as g:
-            g.write(encrypted_content)
+        for piece in self.read_in_chunks(input_file):
+            encrypted_content = cipher_object.encrypt(piece)
+            output_file.write(encrypted_content)
+        
+        input_file.close()
+        output_file.close()
 
         # clean up the cipher object
         del cipher_object
@@ -73,16 +85,15 @@ class EncryptionTool:
             self.hashed_key_salt["salt"]
         )
 
-        # read content of file
-        with open(self.user_file, "rb") as f:
-            content = f.read()
+        input_file = open(self.user_file, "rb")
+        output_file = open(self.decrypt_output_file, "xb")
 
-        # decrypt the file contents
-        decrypted_content = cipher_object.decrypt(content)
-
-        #  write the decrypted content to output file
-        with open(self.decrypt_output_file, "wb") as g:
-            g.write(decrypted_content)
+        for piece in self.read_in_chunks(input_file):
+            decrypted_content = cipher_object.decrypt(piece)
+            output_file.write(decrypted_content)
+        
+        input_file.close()
+        output_file.close()
 
         # clean up the cipher object
         del cipher_object
@@ -133,7 +144,7 @@ class MainWindow:
         self._status.set("---")
 
         root.title("KrypApp")
-        root.configure(bg="#e7eaf6")
+        root.configure(bg="#eeeeee")
 
         try:
             icon_img = tk.Image(
@@ -152,7 +163,7 @@ class MainWindow:
 
         self.menu_bar = tk.Menu(
             root,
-            bg="#e7eaf6",
+            bg="#eeeeee",
             relief=tk.FLAT
         )
         self.menu_bar.add_command(
@@ -171,7 +182,7 @@ class MainWindow:
         self.file_entry_label = tk.Label(
             root,
             text="Enter File Path Or Click SELECT FILE Button",
-            bg="#e7eaf6",
+            bg="#eeeeee",
             anchor=tk.W
         )
         self.file_entry_label.grid(
@@ -196,7 +207,7 @@ class MainWindow:
             padx=15,
             pady=6,
             ipadx=8,
-            ipady=6,
+            ipady=8,
             row=1,
             column=0,
             columnspan=4,
@@ -227,7 +238,7 @@ class MainWindow:
         self.key_entry_label = tk.Label(
             root,
             text="Enter Secret Key (Remember this for Decryption)",
-            bg="#e7eaf6",
+            bg="#eeeeee",
             anchor=tk.W
         )
         self.key_entry_label.grid(
@@ -252,48 +263,13 @@ class MainWindow:
             padx=15,
             pady=6,
             ipadx=8,
-            ipady=6,
+            ipady=8,
             row=4,
             column=0,
             columnspan=4,
             sticky=tk.W+tk.E+tk.N+tk.S
         )
 
-        # self.salt_entry_label = tk.Label(
-        #     root,
-        #     text="Enter Salt",
-        #     bg="#e7eaf6",
-        #     anchor=tk.W
-        # )
-        # self.salt_entry_label.grid(
-        #     padx=12,
-        #     pady=(6, 0),
-        #     ipadx=0,
-        #     ipady=1,
-        #     row=5,
-        #     column=0,
-        #     columnspan=4,
-        #     sticky=tk.W+tk.E+tk.N+tk.S
-        # )
-
-        # self.salt_entry = tk.Entry(
-        #     root,
-        #     textvariable=self._salt,
-        #     bg="#fff",
-        #     exportselection=0,
-        #     relief=tk.FLAT
-        # )
-        # self.salt_entry.grid(
-        #     padx=15,
-        #     pady=6,
-        #     ipadx=8,
-        #     ipady=6,
-        #     row=6,
-        #     column=0,
-        #     columnspan=4,
-        #     sticky=tk.W+tk.E+tk.N+tk.S
-        # )
-        
         self.encrypt_btn = tk.Button(
             root,
             text="ENCRYPT",
@@ -336,9 +312,9 @@ class MainWindow:
 
         self.clear_btn = tk.Button(
             root,
-            text="CLEAR",
+            text="RESET",
             command=self.clear_callback,
-            bg="#aa7070",
+            bg="#aaaaaa",
             fg="#ffffff",
             bd=2,
             relief=tk.FLAT
@@ -357,7 +333,7 @@ class MainWindow:
         self.status_label = tk.Label(
             root,
             textvariable=self._status,
-            bg="#e7eaf6",
+            bg="#eeeeee",
             anchor=tk.W,
             justify=tk.LEFT,
             relief=tk.FLAT,
