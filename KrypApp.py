@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 from Cryptodome.Cipher import AES
+# import threading
 
 
 class EncryptionTool:
@@ -20,6 +21,10 @@ class EncryptionTool:
     def __init__(self, user_file, user_key, user_salt):
         # get the path to input file
         self.user_file = user_file
+
+        self.input_file_size = os.path.getsize(self.user_file)
+        self.chunk_size = 1024
+        self.total_chunks = (self.input_file_size // self.chunk_size) + 1
         
         # convert the key and salt to bytes
         self.user_key = bytes(user_key, "utf-8")
@@ -32,7 +37,8 @@ class EncryptionTool:
         self.hash_type = "SHA256"
 
         # encrypted file name
-        self.encrypt_output_file = ".".join(self.user_file.split(".")[:-1]) + "." + self.file_extension + ".kryp"
+        self.encrypt_output_file = ".".join(self.user_file.split(".")[:-1]) \
+            + "." + self.file_extension + ".kryp"
 
         # decrypted file name
         self.decrypt_output_file = self.user_file[:-5].split(".")
@@ -64,12 +70,17 @@ class EncryptionTool:
             self.hashed_key_salt["salt"]
         )
 
+        self.abort() # if the output file already exists, remove it first
+
         input_file = open(self.user_file, "rb")
         output_file = open(self.encrypt_output_file, "ab")
+        done_chunks = 0
 
-        for piece in self.read_in_chunks(input_file):
+        for piece in self.read_in_chunks(input_file, self.chunk_size):
             encrypted_content = cipher_object.encrypt(piece)
             output_file.write(encrypted_content)
+            done_chunks += 1
+            yield (done_chunks / self.total_chunks) * 100
         
         input_file.close()
         output_file.close()
@@ -85,18 +96,30 @@ class EncryptionTool:
             self.hashed_key_salt["salt"]
         )
 
+        self.abort() # if the output file already exists, remove it first
+
         input_file = open(self.user_file, "rb")
         output_file = open(self.decrypt_output_file, "xb")
+        done_chunks = 0
 
         for piece in self.read_in_chunks(input_file):
             decrypted_content = cipher_object.decrypt(piece)
             output_file.write(decrypted_content)
+            done_chunks += 1
+            yield (done_chunks / self.total_chunks) * 100
         
         input_file.close()
         output_file.close()
 
         # clean up the cipher object
         del cipher_object
+
+    def abort(self):
+        if os.path.isfile(self.encrypt_output_file):
+            os.remove(self.encrypt_output_file)
+        if os.path.isfile(self.decrypt_output_file):
+            os.remove(self.decrypt_output_file)
+
 
     def hash_key_salt(self):
         # --- convert key to hash
@@ -122,6 +145,29 @@ class EncryptionTool:
         del hasher
 
 
+# class EncryptionThread(threading.Thread):
+#     mutual_space = {}
+#     threadLock = threading.Lock()
+
+#     def __init__(self, index):
+#         threading.Thread.__init__(self)
+#         self.threadID = index
+    
+#     def run(self):
+#         try:
+#             pass
+#         except Exception as e:
+#             print(e)
+#             return
+        
+#         # Get lock to synchronize threads
+#         self.threadLock.acquire()
+#         # Append stuff to mutual_space
+        
+#         # Free lock to release next thread
+#         self.threadLock.release()
+
+
 class MainWindow:
     """ GUI Wrapper """
 
@@ -143,6 +189,8 @@ class MainWindow:
         self._status = tk.StringVar()
         self._status.set("---")
 
+        self.should_cancel = False
+
         root.title("KrypApp")
         root.configure(bg="#eeeeee")
 
@@ -157,8 +205,7 @@ class MainWindow:
                 root._w,
                 icon_img
             )
-        except Exception as e:
-            # print(e)
+        except Exception:
             pass
 
         self.menu_bar = tk.Menu(
@@ -310,16 +357,16 @@ class MainWindow:
             sticky=tk.W+tk.E+tk.N+tk.S
         )
 
-        self.clear_btn = tk.Button(
+        self.reset_btn = tk.Button(
             root,
             text="RESET",
-            command=self.clear_callback,
+            command=self.reset_callback,
             bg="#aaaaaa",
             fg="#ffffff",
             bd=2,
             relief=tk.FLAT
         )
-        self.clear_btn.grid(
+        self.reset_btn.grid(
             padx=15,
             pady=(4, 12),
             ipadx=24,
@@ -356,57 +403,107 @@ class MainWindow:
         tk.Grid.columnconfigure(root, 3, weight=1)
 
     def selectfile_callback(self):
-        name = filedialog.askopenfile()
         try:
+            name = filedialog.askopenfile()
             self._file_url.set(name.name)
             # print(name.name)
         except Exception as e:
-            # print(e)
-            pass
+            self._status.set(e)
+            self.status_label.update()
+    
+    def freeze_controls(self):
+        self.file_entry.configure(state="disabled")
+        self.key_entry.configure(state="disabled")
+        self.select_btn.configure(state="disabled")
+        self.encrypt_btn.configure(state="disabled")
+        self.decrypt_btn.configure(state="disabled")
+        self.reset_btn.configure(text="CANCEL", command=self.cancel_callback,
+            fg="#ed3833", bg="#fafafa")
+        self.status_label.update()
+    
+    def unfreeze_controls(self):
+        self.file_entry.configure(state="normal")
+        self.key_entry.configure(state="normal")
+        self.select_btn.configure(state="normal")
+        self.encrypt_btn.configure(state="normal")
+        self.decrypt_btn.configure(state="normal")
+        self.reset_btn.configure(text="RESET", command=self.reset_callback,
+            fg="#ffffff", bg="#aaaaaa")
+        self.status_label.update()
 
     def encrypt_callback(self):
+        self.freeze_controls()
+
         try:
             self._cipher = EncryptionTool(
                 self._file_url.get(),
                 self._secret_key.get(),
                 self._salt.get()
             )
-            self._cipher.encrypt()
-            self._cipher = None
+            for percentage in self._cipher.encrypt():
+                if self.should_cancel:
+                    break
+                percentage = "{0:.2f}%".format(percentage)
+                self._status.set(percentage)
+                self.status_label.update()
             self._status.set("File Encrypted!")
+            if self.should_cancel:
+                self._cipher.abort()
+                self._status.set("Cancelled!")
+            self._cipher = None
+            self.should_cancel = False
         except Exception as e:
             # print(e)
             self._status.set(e)
+
+        self.unfreeze_controls()
 
     def decrypt_callback(self):
+        self.freeze_controls()
+
         try:
             self._cipher = EncryptionTool(
                 self._file_url.get(),
                 self._secret_key.get(),
                 self._salt.get()
             )
-            self._cipher.decrypt()
-            self._cipher = None
+            for percentage in self._cipher.decrypt():
+                if self.should_cancel:
+                    break
+                percentage = "{0:.2f}%".format(percentage)
+                self._status.set(percentage)
+                self.status_label.update()
             self._status.set("File Decrypted!")
+            if self.should_cancel:
+                self._cipher.abort()
+                self._status.set("Cancelled!")
+            self._cipher = None
+            self.should_cancel = False
         except Exception as e:
             # print(e)
             self._status.set(e)
+        
+        self.unfreeze_controls()
 
-    def clear_callback(self):
+    def reset_callback(self):
         self._cipher = None
         self._file_url.set("")
         self._secret_key.set("")
         self._salt.set("")
         self._status.set("---")
+    
+    def cancel_callback(self):
+        self.should_cancel = True
 
     def show_help_callback(self):
         messagebox.showinfo(
             "How To",
-            """1. Click SELECT FILE Button and select your file (e.g. abc.jpg).
+            """1. Open the App and Click SELECT FILE Button and select your file e.g. "abc.jpg".
 2. Enter your Secret Key (This can be any alphanumeric letters). Remember this so you can Decrypt the file later.
-3. Click ENCRYPT Button to encrypt. A new encrypted file with ".kryp" extention (e.g. abc.jpg.kryp) will be created in the same directory where the "abc.jpg" is.
-4. When you want to Decrypt a file you will select the file with the ".kryp" extention and Enter your Secret Key which you chose at the time of Encryption. Click DECRYPT Button to decrypt. The decrypted file will be of the same name as before "abc.jpg".
-5. Click CLEAR Button to clear the input fields."""
+3. Click ENCRYPT Button to encrypt. A new encrypted file with ".kryp" extention e.g. "abc.jpg.kryp" will be created in the same directory where the "abc.jpg" is.
+4. When you want to Decrypt a file you, will select the file with the ".kryp" extention and Enter your Secret Key which you chose at the time of Encryption. Click DECRYPT Button to decrypt. The decrypted file will be of the same name as before with the suffix "__dekrypted__" e.g. "abc__dekrypted__.jpg".
+5. Click RESET Button to reset the input fields and status bar.
+6. You can also Click CANCEL Button during Encryption/Decryption to stop the process."""
         )
 
 
